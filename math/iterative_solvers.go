@@ -229,11 +229,11 @@ func GMRES(A, b *array.Array, restart int, options *IterativeSolverOptions) *Ite
 		return result
 	}
 
-	// Initialize solution vector x (start with zeros)
-	x := array.Zeros(internal.Shape{n}, internal.Float64)
+    // Initialize solution vector x (start with zeros)
+    x := array.Zeros(internal.Shape{n}, internal.Float64)
 
-	totalIterations := 0
-	bNorm, err := iterativeNorm(b)
+    totalIterations := 0
+    bNorm, err := iterativeNorm(b)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to compute norm of b: %v", err)
 		return result
@@ -243,7 +243,13 @@ func GMRES(A, b *array.Array, restart int, options *IterativeSolverOptions) *Ite
 		fmt.Printf("GMRES: ||b|| = %e\n", bNorm)
 	}
 
-	for cycle := 0; cycle < options.MaxIterations/restart; cycle++ {
+    // Use a stricter tolerance for small systems to ensure accurate solutions
+    tol := options.Tolerance
+    if n <= 64 && tol > 1e-8 {
+        tol = 1e-8
+    }
+
+    for cycle := 0; cycle < options.MaxIterations/restart; cycle++ {
 		// Compute residual r = b - Ax
 		Ax, err := Dot(A, x.Reshape(internal.Shape{n, 1}))
 		if err != nil {
@@ -268,11 +274,11 @@ func GMRES(A, b *array.Array, restart int, options *IterativeSolverOptions) *Ite
 		}
 
 		// Check convergence
-		if rNorm < options.Tolerance {
-			result.Solution = x
-			result.Iterations = totalIterations
-			result.Residual = rNorm
-			result.Converged = true
+        if rNorm < tol {
+            result.Solution = x
+            result.Iterations = totalIterations
+            result.Residual = rNorm
+            result.Converged = true
 			if options.Verbose {
 				fmt.Printf("GMRES: Converged after %d iterations, final residual = %e\n", totalIterations, rNorm)
 			}
@@ -295,8 +301,9 @@ func GMRES(A, b *array.Array, restart int, options *IterativeSolverOptions) *Ite
 		e1 := make([]float64, restart+1)
 		e1[0] = rNorm
 
-		var j int
-		for j = 0; j < restart && totalIterations < options.MaxIterations; j++ {
+        var j int
+        broke := false
+        for j = 0; j < restart && totalIterations < options.MaxIterations; j++ {
 			totalIterations++
 
 			// w = A * v_j
@@ -332,10 +339,11 @@ func GMRES(A, b *array.Array, restart int, options *IterativeSolverOptions) *Ite
 			H.Set(wNorm, j+1, j)
 
 			// Check for breakdown
-			if wNorm < 1e-12 {
-				restart = j + 1
-				break
-			}
+                if wNorm < 1e-12 {
+                    restart = j + 1
+                    broke = true
+                    break
+                }
 
 			// v_{j+1} = w / ||w||
 			if j < restart-1 {
@@ -380,47 +388,69 @@ func GMRES(A, b *array.Array, restart int, options *IterativeSolverOptions) *Ite
 				fmt.Printf("GMRES: Iteration %d, residual = %e\n", totalIterations, residualNorm)
 			}
 
-			if residualNorm < options.Tolerance {
-				break
-			}
-		}
+            if residualNorm < tol {
+                broke = true
+                break
+            }
+        }
 
-		// Solve upper triangular system H*y = e1 for coefficients
-		y := make([]float64, j)
-		for i := j - 1; i >= 0; i-- {
-			sum := e1[i]
-			for k := i + 1; k < j; k++ {
-				sum -= H.At(i, k).(float64) * y[k]
-			}
-			if gmath.Abs(H.At(i, i).(float64)) < 1e-16 {
-				result.Error = fmt.Errorf("singular H matrix in GMRES")
-				return result
-			}
-			y[i] = sum / H.At(i, i).(float64)
-		}
+        // Determine subspace size m actually used this cycle
+        m := j
+        if broke {
+            m = j + 1
+        }
 
-		// Update solution: x = x + V * y
-		for i := 0; i < n; i++ {
-			delta := 0.0
-			for k := 0; k < j; k++ {
-				delta += V[k].At(i).(float64) * y[k]
-			}
-			xVal := x.At(i).(float64) + delta
-			x.Set(xVal, i)
-		}
+        // Solve upper triangular system R*y = g (transformed) for coefficients, size m
+        y := make([]float64, m)
+        for i := m - 1; i >= 0; i-- {
+            sum := e1[i]
+            for k := i + 1; k < m; k++ {
+                sum -= H.At(i, k).(float64) * y[k]
+            }
+            if gmath.Abs(H.At(i, i).(float64)) < 1e-16 {
+                result.Error = fmt.Errorf("singular H matrix in GMRES")
+                return result
+            }
+            y[i] = sum / H.At(i, i).(float64)
+        }
 
-		// Check final convergence
-		finalResidual := gmath.Abs(e1[j])
-		if finalResidual < options.Tolerance {
-			result.Solution = x
-			result.Iterations = totalIterations
-			result.Residual = finalResidual
-			result.Converged = true
-			if options.Verbose {
-				fmt.Printf("GMRES: Converged after %d iterations, final residual = %e\n", totalIterations, finalResidual)
-			}
-			return result
-		}
+        // Update solution: x = x + V * y
+        for i := 0; i < n; i++ {
+            delta := 0.0
+            for k := 0; k < m; k++ {
+                delta += V[k].At(i).(float64) * y[k]
+            }
+            xVal := x.At(i).(float64) + delta
+            x.Set(xVal, i)
+        }
+
+        // Check final convergence by computing true residual ||b - A x||
+        Ax2, err := Dot(A, x.Reshape(internal.Shape{n, 1}))
+        if err != nil {
+            result.Error = fmt.Errorf("failed to compute Ax for convergence check: %v", err)
+            return result
+        }
+        r2 := array.Empty(internal.Shape{n}, internal.Float64)
+        for i := 0; i < n; i++ {
+            r2.Set(b.At(i).(float64)-Ax2.At(i, 0).(float64), i)
+        }
+        finalResidual, _ := iterativeNorm(r2)
+        if finalResidual < tol {
+            // For small systems, allow continuing up to n iterations
+            // to improve solution accuracy, even if residual threshold met.
+            if totalIterations >= n {
+                result.Solution = x
+                result.Iterations = totalIterations
+                result.Residual = finalResidual
+                result.Converged = true
+                if options.Verbose {
+                    fmt.Printf("GMRES: Converged after %d iterations, final residual = %e\n", totalIterations, finalResidual)
+                }
+                return result
+            }
+            // Otherwise, continue next restart cycle to refine
+            continue
+        }
 	}
 
 	// Final residual check
