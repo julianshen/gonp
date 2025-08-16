@@ -1,7 +1,7 @@
 # GoNP Production-Ready Makefile
 # High-performance numerical computing library for Go
 
-.PHONY: all build build-core test test-core bench clean fmt lint vet install deps coverage security examples check-examples
+.PHONY: all build build-core test test-core bench clean fmt lint vet install deps coverage security examples check-examples arm64-build arm64-build-all
 
 # Go build flags for optimization
 BUILD_FLAGS = -ldflags="-s -w" -trimpath
@@ -143,6 +143,20 @@ build-prod: clean bin
 	@echo "Building production binaries..."
 	CGO_ENABLED=1 go build $(BUILD_FLAGS) -tags="simd,gpu,numa" ./internal
 
+# Cross-compile (linux/arm64)
+arm64-build:
+	@echo "Cross-compiling for linux/arm64 (pure-Go NEON)..."
+	mkdir -p .gocache
+	GOCACHE=$(CURDIR)/.gocache GOOS=linux GOARCH=arm64 go build ./internal
+	GOCACHE=$(CURDIR)/.gocache GOOS=linux GOARCH=arm64 go build ./timeseries
+	@echo "\u2713 Built ./internal and ./timeseries"
+
+arm64-build-all:
+	@echo "Cross-compiling all packages for linux/arm64 (excluding examples)..."
+	mkdir -p .gocache
+	@packages=$$(go list ./... | grep -v "/examples"); \
+	GOCACHE=$(CURDIR)/.gocache GOOS=linux GOARCH=arm64 go build $$packages && echo "\u2713 Built $$packages"
+
 # Run comprehensive checks (includes unit tests)
 check: fmt vet lint security test check-examples
 
@@ -213,6 +227,8 @@ help:
 	@echo "  all           - Full production build"
 	@echo "  build-prod    - Optimized production build"
 	@echo "  deploy-check  - Pre-deployment verification"
+	@echo "  arm64-build   - Cross-compile internal + timeseries for linux/arm64"
+	@echo "  arm64-build-all - Cross-compile all pkgs (excl. examples) for linux/arm64"
 	@echo ""
 	@echo "Quality Assurance:"
 	@echo "  fmt           - Format code"

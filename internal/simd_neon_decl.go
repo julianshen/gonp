@@ -1,4 +1,4 @@
-//go:build arm64 && !vet
+//go:build arm64 && neonasm && !vet
 
 package internal
 
