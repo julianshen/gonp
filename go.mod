@@ -1,6 +1,6 @@
 module github.com/julianshen/gonp
 
-go 1.24.4
+go 1.25
 
 require (
 	github.com/mattn/go-sqlite3 v1.14.30
@@ -17,5 +17,5 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/shabbyrobe/xmlwriter v0.0.0-20200208144257-9fca06d00ffa // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/text v0.14.0 // indirect
 )

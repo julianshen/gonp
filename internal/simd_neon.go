@@ -299,9 +299,12 @@ func (p *NEONProvider) SqrtFloat32(a, result []float32, n int) {
 
 // Utility functions
 func (p *NEONProvider) IsAligned(ptr unsafe.Pointer) bool {
-	return uintptr(ptr)%16 == 0 // NEON requires 16-byte alignment
+	// NEON performs unaligned loads/stores (VLD1/VST1) safely on ARM64;
+	// 16-byte alignment is preferred for peak performance but not required.
+	return uintptr(ptr)%16 == 0
 }
 
 func (p *NEONProvider) AlignmentRequirement() int {
-	return 16 // NEON requires 16-byte alignment
+	// Preferred alignment for best performance.
+	return 16
 }

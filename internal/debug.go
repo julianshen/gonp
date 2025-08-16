@@ -297,7 +297,8 @@ func PrintStatistics() {
 
 // logToFile writes a message to the debug log file
 func logToFile(message string) {
-	file, err := os.OpenFile(globalDebugConfig.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	// Use restrictive permissions for debug logs
+	file, err := os.OpenFile(globalDebugConfig.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		log.Printf("Failed to open debug log file: %v", err)
 		return

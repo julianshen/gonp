@@ -1,4 +1,4 @@
-//go:build arm64 || arm
+//go:build arm
 
 package internal
 

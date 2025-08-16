@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 )
 
 // DecompositionResult represents the result of time series decomposition
@@ -143,8 +144,97 @@ func (ts *TimeSeries) DetectSeasonalPeriod() (int, error) {
 
 // DetectMultipleSeasonalPeriods detects multiple seasonal periods
 func (ts *TimeSeries) DetectMultipleSeasonalPeriods(maxPeriods int) ([]int, error) {
-	// TDD Red phase - this should fail initially
-	return nil, errors.New("DetectMultipleSeasonalPeriods not yet implemented")
+	if ts == nil {
+		return nil, errors.New("time series cannot be nil")
+	}
+	if ts.Len() < 6 {
+		return nil, errors.New("need at least 6 observations to detect seasonal periods")
+	}
+	if maxPeriods <= 0 {
+		return nil, errors.New("maxPeriods must be positive")
+	}
+
+	// Limit search window
+	maxLag := ts.Len() / 2
+	if maxLag > 50 {
+		maxLag = 50
+	}
+	if maxLag < 2 {
+		return nil, errors.New("series too short to detect seasonal periods")
+	}
+
+	type cand struct {
+		lag   int
+		score float64
+	}
+	candidates := make([]cand, 0, maxLag-1)
+
+	// Compute autocorrelation for candidate lags
+	for lag := 2; lag <= maxLag; lag++ {
+		acf := math.Abs(ts.computeAutocorrelation(lag))
+		candidates = append(candidates, cand{lag: lag, score: acf})
+	}
+
+	// Sort by descending score
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].score > candidates[j].score })
+
+	// Select top-K periods while suppressing near-duplicates and harmonics
+	const threshold = 0.30
+	selected := make([]int, 0, maxPeriods)
+
+	isHarmonic := func(p, q int) bool {
+		// Treat p as harmonic of q (or vice versa) if within +/-1 of k*q for small k
+		if q == 0 {
+			return false
+		}
+		// Check both directions up to reasonable multiples
+		for k := 1; k <= 6; k++ {
+			if absInt(p-k*q) <= 1 {
+				return true
+			}
+			if absInt(q-k*p) <= 1 {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, c := range candidates {
+		if len(selected) >= maxPeriods {
+			break
+		}
+		// Keep strong peaks first; allow fallback later
+		if c.score < threshold {
+			continue
+		}
+		duplicate := false
+		for _, s := range selected {
+			if absInt(c.lag-s) <= 1 || isHarmonic(c.lag, s) {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			selected = append(selected, c.lag)
+		}
+	}
+
+	// Fallback: if nothing met threshold, return the single best candidate
+	if len(selected) == 0 && len(candidates) > 0 {
+		selected = append(selected, candidates[0].lag)
+	}
+
+	if len(selected) == 0 {
+		return nil, errors.New("no significant seasonal pattern detected")
+	}
+	return selected, nil
+}
+
+func absInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // ExtractTrend extracts the trend component using specified method

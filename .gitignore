@@ -50,3 +50,11 @@ mem.prof
 
 CLAUDE.md
 .claude
+
+.gocache/
+.gomodcache/
+.golock
+.golangci-lint-cache/
+.golangci-cache/
+
+AGENTS.MD

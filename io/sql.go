@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,6 +229,10 @@ func WriteSQL(df *dataframe.DataFrame, tableName string, db *sql.DB, options *SQ
 	if tableName == "" {
 		return internal.NewValidationErrorWithMsg("WriteSQL", "table name cannot be empty")
 	}
+	// Validate identifier to prevent SQL injection via table name
+	if err := validateIdentifier(tableName); err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
 
 	if db == nil {
 		return internal.NewValidationErrorWithMsg("WriteSQL", "database connection cannot be nil")
@@ -248,8 +254,12 @@ func WriteSQL(df *dataframe.DataFrame, tableName string, db *sql.DB, options *SQ
 		case "fail":
 			return fmt.Errorf("table %s already exists", tableName)
 		case "replace":
-			// Drop and recreate table
-			_, err = db.Exec(fmt.Sprintf("DROP TABLE %s", tableName))
+			// Drop and recreate table using validated identifier
+			dropSQL, derr := buildDropTableSQL(tableName)
+			if derr != nil {
+				return derr
+			}
+			_, err = db.Exec(dropSQL)
 			if err != nil {
 				return fmt.Errorf("failed to drop existing table: %v", err)
 			}
@@ -378,16 +388,23 @@ func convertSQLValue(val interface{}, colType *sql.ColumnType) (interface{}, err
 	}
 }
 
-// checkTableExists checks if a table exists in the database
+// checkTableExists attempts a portable existence check.
+// It tries a simple SELECT with a validated identifier, which works on SQLite/Postgres
+// and many MySQL setups (ANSI_QUOTES). Otherwise, errors are passed through.
 func checkTableExists(db *sql.DB, tableName string) (bool, error) {
-	// This is SQLite-specific; would need to be adapted for other databases
-	query := `SELECT name FROM sqlite_master WHERE type='table' AND name=?`
-	var name string
-	err := db.QueryRow(query, tableName).Scan(&name)
-	if err == sql.ErrNoRows {
-		return false, nil
+	if err := validateIdentifier(tableName); err != nil {
+		return false, err
 	}
-	if err != nil {
+	selSQL := fmt.Sprintf("SELECT 1 FROM %s LIMIT 1", tableName)
+	row := db.QueryRow(selSQL)
+	var one int
+	if err := row.Scan(&one); err != nil {
+		// Not found is treated as non-existent; differentiate common messages conservatively
+		if strings.Contains(strings.ToLower(err.Error()), "no such table") ||
+			strings.Contains(strings.ToLower(err.Error()), "doesn't exist") ||
+			strings.Contains(strings.ToLower(err.Error()), "undefined table") {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
@@ -395,10 +412,16 @@ func checkTableExists(db *sql.DB, tableName string) (bool, error) {
 
 // createTableFromDataFrame creates a table schema based on DataFrame structure
 func createTableFromDataFrame(db *sql.DB, tableName string, df *dataframe.DataFrame) error {
+	if err := validateIdentifier(tableName); err != nil {
+		return err
+	}
 	sqlTypes := inferSQLTypes(df)
 
 	var columnDefs []string
 	for _, colName := range df.Columns() {
+		if err := validateIdentifier(colName); err != nil {
+			return fmt.Errorf("invalid column name %q: %w", colName, err)
+		}
 		sqlType, exists := sqlTypes[colName]
 		if !exists {
 			sqlType = "TEXT" // Default fallback
@@ -410,6 +433,24 @@ func createTableFromDataFrame(db *sql.DB, tableName string, df *dataframe.DataFr
 
 	_, err := db.Exec(createSQL)
 	return err
+}
+
+// buildDropTableSQL builds a safe DROP TABLE statement for a validated identifier
+func buildDropTableSQL(tableName string) (string, error) {
+	if err := validateIdentifier(tableName); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("DROP TABLE %s", tableName), nil
+}
+
+var identRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// validateIdentifier enforces a conservative identifier policy to avoid SQL injection
+func validateIdentifier(name string) error {
+	if !identRe.MatchString(name) {
+		return fmt.Errorf("identifier must match %s", identRe.String())
+	}
+	return nil
 }
 
 // inferSQLTypes infers SQL column types from DataFrame
@@ -578,6 +619,10 @@ func convertToInt64SQL(val interface{}) (int64, error) {
 	case int8:
 		return int64(v), nil
 	case uint64:
+		const maxInt64U = ^uint64(0) >> 1
+		if v > maxInt64U { // > MaxInt64
+			return 0, fmt.Errorf("uint64 %d overflows int64", v)
+		}
 		return int64(v), nil
 	case uint32:
 		return int64(v), nil
@@ -586,8 +631,15 @@ func convertToInt64SQL(val interface{}) (int64, error) {
 	case uint8:
 		return int64(v), nil
 	case float64:
+		if v > float64(^int64(0)) || v < float64(^int64(0))*-1-1 {
+			return 0, fmt.Errorf("float64 %g out of int64 range", v)
+		}
 		return int64(v), nil
 	case float32:
+		f := float64(v)
+		if f > float64(^int64(0)) || f < float64(^int64(0))*-1-1 {
+			return 0, fmt.Errorf("float32 %g out of int64 range", v)
+		}
 		return int64(v), nil
 	case bool:
 		if v {
@@ -595,9 +647,7 @@ func convertToInt64SQL(val interface{}) (int64, error) {
 		}
 		return 0, nil
 	case string:
-		// Try to parse string as int
-		var i int64
-		_, err := fmt.Sscanf(v, "%d", &i)
+		i, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("cannot convert string '%s' to int64", v)
 		}
@@ -638,9 +688,7 @@ func convertToFloat64SQL(val interface{}) (float64, error) {
 		}
 		return 0.0, nil
 	case string:
-		// Try to parse string as float
-		var f float64
-		_, err := fmt.Sscanf(v, "%f", &f)
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
 		if err != nil {
 			return 0, fmt.Errorf("cannot convert string '%s' to float64", v)
 		}

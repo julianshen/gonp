@@ -488,24 +488,29 @@ func SIMDDotProductFloat64(a, b []float64, n int) float64 {
 // SIMDThreshold defines the minimum array size where SIMD becomes beneficial
 const SIMDThreshold = 32
 
-// ShouldUseSIMD determines if SIMD should be used based on array size and alignment
+// ShouldUseSIMD determines if SIMD should be used based on array size and capability.
+// Note: Assembly implementations use unaligned loads (e.g., VMOVUPD), so strict alignment
+// is not required. We still log when inputs are unaligned to aid performance tuning.
 func ShouldUseSIMD(size int, ptrs ...unsafe.Pointer) bool {
-	// Don't use SIMD for small arrays
 	if size < SIMDThreshold {
 		return false
 	}
 
-	// Check if all pointers are properly aligned (if any provided)
 	provider := GetSIMDProvider()
+	if provider.Capability() == SIMDNone {
+		return false
+	}
+
+	// Log potential misalignment, but do not block SIMD usage
 	for _, ptr := range ptrs {
 		if ptr != nil && !provider.IsAligned(ptr) {
-			DebugVerbose("SIMD disabled: unaligned memory (ptr=%v, alignment=%d)",
+			DebugVerbose("SIMD proceeding with unaligned memory (ptr=%v, alignment=%d)",
 				ptr, provider.AlignmentRequirement())
-			return false
+			break
 		}
 	}
 
-	return provider.Capability() != SIMDNone
+	return true
 }
 
 // GetSIMDStatistics returns information about SIMD usage

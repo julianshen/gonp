@@ -587,37 +587,7 @@ func CheckAvailableMemory(requiredMemory int64) bool {
 }
 
 // PrefetchFile prefetches file content into system cache
-func PrefetchFile(filename string) error {
-	file, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Advise the kernel to prefetch the file
-	// This is Linux-specific; would need platform-specific implementations
-	fd := file.Fd()
-
-	stat, err := file.Stat()
-	if err != nil {
-		return err
-	}
-
-	// Use madvise to hint at sequential access pattern
-	_, _, errno := syscall.Syscall6(
-		syscall.SYS_FADVISE64,
-		uintptr(fd),
-		0,                    // offset
-		uintptr(stat.Size()), // length
-		uintptr(2),           // POSIX_FADV_SEQUENTIAL
-		0, 0)
-
-	if errno != 0 {
-		return fmt.Errorf("fadvise failed: %v", errno)
-	}
-
-	return nil
-}
+// PrefetchFile is implemented per-OS to avoid cross-arch issues.
 
 // ZeroCopyReader provides zero-copy reading capabilities
 type ZeroCopyReader struct {

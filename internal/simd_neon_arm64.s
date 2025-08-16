@@ -1,4 +1,4 @@
-//go:build arm64
+//go:build arm64 && !vet
 
 // ARM64 NEON assembly implementations
 // These functions provide vectorized operations using ARM64 Advanced SIMD (NEON)

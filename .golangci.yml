@@ -1,0 +1,16 @@
+run:
+  timeout: 3m
+  build-tags:
+    - vet
+  tests: true
+
+issues:
+  exclude-dirs:
+    - examples
+  exclude-files:
+    - io/performance.go
+
+linters:
+  disable-all: true
+  enable:
+    - govet
