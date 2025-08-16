@@ -269,8 +269,11 @@ func GetDefaultDevice() (Device, error) {
 
 // IsCudaAvailable returns true if CUDA backend is available
 func IsCudaAvailable() bool {
-	// Placeholder - would check for CUDA runtime/driver
-	return false // Set to false for now since we don't have CUDA implementation
+    // Ask the CUDA backend (build-tagged) whether devices can be detected.
+    if devices, err := DetectCUDADevices(); err == nil && len(devices) > 0 {
+        return true
+    }
+    return false
 }
 
 // IsOpenCLAvailable returns true if OpenCL backend is available
