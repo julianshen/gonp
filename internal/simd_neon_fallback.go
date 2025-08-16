@@ -1,16 +1,10 @@
-//go:build !arm64 && !arm
+//go:build !arm64 && !arm && !vet
 
 package internal
 
 import "unsafe"
 
-// NewNEONProvider is not available on non-ARM architectures
-// This fallback returns a scalar provider
-func NewNEONProvider() SIMDProvider {
-	return NewScalarProvider()
-}
-
-// NEON function stubs for non-ARM architectures
+// NEON function stubs for non-ARM architectures (non-vet builds)
 // These functions are never called but need to be declared for the linker
 
 func addFloat64NEON(a, b, c unsafe.Pointer, n int)                                   {}
