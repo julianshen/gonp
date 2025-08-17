@@ -2,16 +2,16 @@
 
 A high-performance numerical computing library for Go, providing NumPy and Pandas-like functionality with Go's type safety and performance characteristics.
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.19-blue.svg)](https://golang.org/doc/devel/release.html)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.25-blue.svg)](https://golang.org/doc/devel/release.html)
 [![Test Coverage](https://img.shields.io/badge/coverage-61.6%25-brightgreen.svg)](https://github.com/julianshen/gonp)
 [![SIMD Optimized](https://img.shields.io/badge/SIMD-AVX%2FAVX2%2FAVX512-orange.svg)](https://github.com/julianshen/gonp)
 [![Production Ready](https://img.shields.io/badge/status-production%20ready-success.svg)](https://github.com/julianshen/gonp)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/julianshen/gonp/blob/main/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/julianshen/gonp)](https://goreportcard.com/report/github.com/julianshen/gonp)
 
-## 🚀 **Production-Ready Status**
+## 🚀 **Project Status**
 
-GoNP has achieved **production-ready status** with comprehensive functionality, extensive documentation, and battle-tested performance optimizations. The library provides a complete replacement for NumPy and Pandas functionality in Go with **4.15x performance improvements** and enterprise-grade reliability.
+GoNP is actively developed with mature core building blocks (arrays, math, stats, series, dataframe) and comprehensive documentation and examples. Hardware acceleration (CUDA/OpenCL) is available via build tags. See the coverage badge for current test coverage and the Makefile for the recommended dev/test workflow.
 
 ## ✨ **Key Features**
 
@@ -28,24 +28,27 @@ GoNP has achieved **production-ready status** with comprehensive functionality, 
 
 ### Basic Installation
 ```bash
-go get github.com/julianshen/gonp
+go get github.com/julianshen/gonp@latest
 ```
 
-### With Hardware Acceleration (Optional)
+Or import the modules you need and run `go mod tidy`.
+
+### Hardware Acceleration (Optional)
+- CUDA build (requires CUDA toolchain and CGO):
 ```bash
-# For GPU support (requires CUDA/OpenCL)
-go get -tags cuda github.com/julianshen/gonp
-go get -tags opencl github.com/julianshen/gonp
-
-# For distributed computing
-go get -tags distributed github.com/julianshen/gonp
-
-# All optimizations
-go get -tags "simd,gpu,numa,distributed" github.com/julianshen/gonp
+go build -tags cuda ./...
+go test  -tags cuda ./gpu
 ```
+- OpenCL build (requires OpenCL headers/runtime and CGO):
+```bash
+go build -tags opencl ./...
+go test  -tags opencl ./gpu
+```
+
+You can also use `make build-prod` for an optimized build. Note: the extra tags in that target are reserved; only `cuda` and `opencl` are currently used by the codebase.
 
 ### Prerequisites
-- **Go 1.19+** (required)
+- **Go 1.25+** (required)
 - **CUDA 11.0+** (optional, for GPU acceleration)
 - **OpenCL 2.0+** (optional, for GPU acceleration)
 - **Build tools** (optional, for advanced features)
@@ -110,57 +113,27 @@ grouped := df.GroupBy("department")
 avg_salaries := grouped.Mean()
 ```
 
-## 📊 **Complete Feature Matrix**
+## 📊 **Feature Matrix**
 
-### ✅ **Core Foundation (100% Complete)**
-| Feature | Status | Performance | Tests |
-|---------|--------|-------------|-------|
-| N-dimensional Arrays | ✅ Complete | SIMD Optimized | 95%+ Coverage |
-| Mathematical Functions | ✅ Complete | 2-4x Faster | 350+ Functions |
-| Linear Algebra | ✅ Complete | Optimized BLAS | All Decompositions |
-| Statistical Analysis | ✅ Complete | Numerically Stable | ANOVA, Regression |
-| Series & DataFrames | ✅ Complete | Memory Efficient | Full Pandas API |
-| I/O Operations | ✅ Complete | Parallel Processing | CSV, Parquet, SQL |
+### ✅ **Core Foundation (Stable)**
+- N-dimensional arrays: SIMD-aware paths with scalar fallback
+- Mathematical functions and linear algebra: broad coverage with numerically stable implementations
+- Statistics: descriptive stats, regression, ANOVA
+- Series & DataFrames: labeled 1D/2D structures with indexing, GroupBy, merge/join
+- I/O: CSV, JSON, Excel, Parquet, SQL
 
-### 🎯 **Advanced Features (100% Complete)**
-- **SIMD Optimization**: AVX/AVX2/AVX-512 with automatic CPU detection
-- **Parallel Processing**: Multi-threaded operations with optimal scaling
-- **Sparse Matrices**: COO, CSR, CSC formats with efficient operations  
-- **Data Visualization**: Plotly integration and matplotlib-style API
-- **Time Series**: DateTime indexing, resampling, rolling windows
-- **Database Integration**: SQL read/write with connection pooling
-- **Memory Optimization**: Object pooling and efficient memory management
+### 🎯 **Advanced Features (Available)**
+- SIMD: AVX/AVX2/AVX-512 where available; NEON on arm64 (asm behind `neonasm` tag)
+- Parallel processing: multi-threaded operations
+- Sparse matrices: COO/CSR/CSC
+- Visualization: matplotlib-style API (rendering WIP)
+- Time series utilities
+- Database integration (SQL) and connection management
+- Memory optimization and pooling
 
-## 🔥 **Performance Benchmarks**
+## 🔥 **Performance**
 
-GoNP delivers significant performance improvements across all operations:
-
-### **Core Operations (1M elements)**
-```
-Matrix Operations:
-├── Matrix multiplication: 4.15x faster (207% parallel efficiency)
-├── SIMD operations:       2-4x faster (automatic AVX2/AVX-512)
-├── Cache-aware algorithms: 1.04x faster (optimal tile sizes)
-└── NUMA optimization:     6.4 GB/s memory throughput
-
-Statistical Analysis:
-├── Descriptive statistics: 3.8x faster than Python equivalent
-├── Correlation analysis:   2.1x faster with SIMD acceleration
-├── Regression models:      1.9x faster with optimized solvers
-└── ANOVA computations:     2.3x faster with parallel processing
-
-I/O Operations:
-├── CSV reading/writing:    1.43x faster with streaming
-├── Parquet operations:     2.1x faster with compression
-├── SQL queries:           1.8x faster with connection pooling
-└── Memory usage:          20% reduction vs Python equivalents
-
-Enterprise Features:
-├── Metrics collection:    79M+ ops/sec (sub-microsecond overhead)
-├── Security validation:   546K+ hash validations/sec
-├── Access control:        320K+ permission checks/sec
-└── Error handling:        Zero performance impact in production
-```
+Representative benchmarks in this repository and docs illustrate SIMD, parallel, and GPU benefits for larger datasets. Results vary by hardware and workload; see `make bench`, the `internal/` tests, and GPU benchmarks under `gpu/` for reproducible measurements.
 
 ## 📚 **Documentation**
 
@@ -174,7 +147,7 @@ Enterprise Features:
 ### **Migration and Guides**
 - 🔄 **[NumPy/Pandas Migration Guide](./docs/migration_guide.md)**: Complete side-by-side comparisons
 - 🚀 **[Quick Start Examples](./examples/)**: Practical usage patterns  
-- ⚡ **[Performance Guide](./CLAUDE.md#performance-features)**: Optimization best practices
+- ⚡ **[Performance Guide](./CLAUDE.md#5-performance--optimization)**: Optimization best practices
 
 ## 🏗️ **Architecture**
 
@@ -285,37 +258,23 @@ make deploy-check  # Pre-deployment verification
 
 See [CLAUDE.md](./CLAUDE.md) for detailed development guidelines and architecture documentation.
 
-## 📈 **Project Status: 100% Production Ready**
+## 📈 **Project Overview**
 
-GoNP has achieved **complete production readiness** with all core systems implemented and tested.
+The project targets robust, high-performance numerical computing in Go with strong ergonomics and type safety.
 
-### **✅ Core Systems (100% Complete)**
-- **Array Operations**: N-dimensional arrays with SIMD optimization (4x speedup)
-- **Mathematical Functions**: 350+ functions with hardware acceleration
-- **Statistical Analysis**: ANOVA, regression, hypothesis testing, machine learning
-- **Data Structures**: Series and DataFrame with complete Pandas API compatibility
-- **I/O Operations**: CSV, Parquet, SQL with streaming and compression
-- **Performance Optimization**: SIMD, GPU, NUMA, distributed computing (4.15x overall)
+### **Core Systems**
+- Arrays, math, stats, and data structures with broad functionality
+- I/O for common formats (CSV, JSON, Excel, Parquet, SQL)
+- Performance optimizations: SIMD where available; optional GPU paths
 
-### **✅ Enterprise Features (100% Complete)**
-- **Memory Management**: Production-grade pools with leak detection
-- **Error Handling**: Structured error hierarchy with recovery suggestions
-- **Security**: Vulnerability scanning, access control, cryptographic validation
-- **Monitoring**: Metrics collection, health checks, distributed tracing
-- **API Stabilization**: v1.0 contract with semantic versioning
+### **Quality Metrics**
+- Test coverage: 61.6% (see badge and `make coverage`)
+- Cross-arch tests use `-tags vet` for determinism; examples are excluded from tests
+- TDD methodology with benchmarks for critical paths
 
-### **📊 Quality Metrics**
-- **Test Coverage**: 61.6% with comprehensive TDD methodology
-- **Performance**: 4.15x improvement over naive implementations
-- **Memory Efficiency**: 20% reduction vs Python equivalents
-- **Reliability**: Zero memory leaks detected in production testing
-- **Security**: OWASP compliance with automated vulnerability scanning
-
-### **🎯 Production Achievements**
-- **Multi-platform**: amd64, arm64, arm with optimal SIMD utilization
-- **Cross-compilation**: Docker, Kubernetes, cloud-native deployment
-- **Enterprise Integration**: Monitoring, logging, metrics, health checks
-- **Developer Experience**: Comprehensive documentation, migration guides, examples
+### **Platforms**
+- x86_64 SIMD (AVX/AVX2/AVX-512) and arm64 NEON (pure-Go helpers by default; asm behind `neonasm`)
+- Optional GPU via `cuda` or `opencl` build tags
 
 ## 📄 **License**
 
@@ -329,7 +288,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 ## 📞 **Support & Community**
 
-- **Documentation**: [Complete API Reference](https://godoc.org/github.com/julianshen/gonp)
+- **Documentation**: [API Reference](https://pkg.go.dev/github.com/julianshen/gonp)
 - **Issues**: [GitHub Issues](https://github.com/julianshen/gonp/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/julianshen/gonp/discussions)
 - **Security**: Report security issues to [security@julianshen.dev](mailto:security@julianshen.dev)
@@ -340,6 +299,6 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 **GoNP**: Bringing the power of NumPy and Pandas to Go with native performance and type safety. 🚀
 
-**[Documentation](https://godoc.org/github.com/julianshen/gonp)** • **[Examples](./examples/)** • **[Migration Guide](./docs/migration_guide.md)** • **[Contributing](./CLAUDE.md)**
+**[Documentation](https://pkg.go.dev/github.com/julianshen/gonp)** • **[Examples](./examples/)** • **[Migration Guide](./docs/migration_guide.md)** • **[Contributing](./CLAUDE.md)**
 
 </div>
