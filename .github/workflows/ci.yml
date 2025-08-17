@@ -47,7 +47,7 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.4.0
-          args: --timeout=5m --build-tags=vet --out-format=github-actions
+          args: --timeout=5m --build-tags=vet
 
       - name: Run tests (exclude examples; vet tag)
         run: |
