@@ -43,12 +43,11 @@ jobs:
     - name: Run go vet (internal with vet tag)
       run: go vet -tags vet ./internal
 
-    - name: Install golangci-lint
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.2
-
     - name: Run golangci-lint
-      run: $(go env GOPATH)/bin/golangci-lint run
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: v1.60.3
+        args: --timeout=3m
 
     - name: Run tests (exclude examples; vet tag)
       run: |
@@ -61,6 +60,21 @@ jobs:
           echo "Checking $example..."; \
           go build -tags vet -o /dev/null "$example"; \
         done
+
+    - name: Install gosec (optional)
+      continue-on-error: true
+      run: |
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+    - name: Security scan (optional)
+      continue-on-error: true
+      run: |
+        if command -v gosec >/dev/null 2>&1; then \
+          echo "Running gosec (optional)"; \
+          gosec ./...; \
+        else \
+          echo "gosec not installed, skipping"; \
+        fi
 
     - name: Run benchmarks (internal; vet tag; main only)
       if: github.ref == 'refs/heads/main'

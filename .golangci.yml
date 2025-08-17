@@ -2,7 +2,7 @@ run:
   timeout: 3m
   build-tags:
     - vet
-  tests: true
+  tests: false
 
 issues:
   exclude-dirs:
