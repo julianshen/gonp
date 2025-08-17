@@ -14,20 +14,20 @@
 package gpu
 
 import (
-    "errors"
-    "fmt"
-    "sync"
-    "time"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
 )
 
 // MPICommunicator represents a distributed computing communicator
 type MPICommunicator struct {
-    rank     int                   // Process rank (0 to size-1)
-    size     int                   // Total number of processes
-    name     string                // Processor name
-    channels map[int]chan *Message // Inbound channels keyed by source rank
-    mutex    sync.RWMutex          // Protects channels access
-    active   bool                  // Whether communicator is active
+	rank     int                   // Process rank (0 to size-1)
+	size     int                   // Total number of processes
+	name     string                // Processor name
+	channels map[int]chan *Message // Inbound channels keyed by source rank
+	mutex    sync.RWMutex          // Protects channels access
+	active   bool                  // Whether communicator is active
 }
 
 // Message represents a message in the distributed system
@@ -78,62 +78,62 @@ func (e *TimeoutError) Error() string {
 
 // Global communicator registry
 var (
-    // worlds holds isolated communicator groups keyed by world size.
-    worlds   = make(map[int]*world)
-    commMutex     sync.RWMutex
+	// worlds holds isolated communicator groups keyed by world size.
+	worlds    = make(map[int]*world)
+	commMutex sync.RWMutex
 )
 
 // world represents a simulated MPI world of a given size.
 type world struct {
-    size     int
-    comms    map[int]*MPICommunicator // rank -> comm
-    nextRank int                      // next rank to hand out
+	size     int
+	comms    map[int]*MPICommunicator // rank -> comm
+	nextRank int                      // next rank to hand out
 }
 
 // InitializeMPI initializes the MPI-style distributed environment
 func InitializeMPI(size int) (*MPICommunicator, error) {
-    if size <= 0 {
-        return nil, errors.New("size must be positive")
-    }
+	if size <= 0 {
+		return nil, errors.New("size must be positive")
+	}
 
-    commMutex.Lock()
-    defer commMutex.Unlock()
+	commMutex.Lock()
+	defer commMutex.Unlock()
 
-    // Get or build world for this size
-    w, ok := worlds[size]
-    if !ok {
-        // Build a fresh world with shared channels
-        w = &world{size: size, comms: make(map[int]*MPICommunicator)}
-        // Create comms for each rank
-        for r := 0; r < size; r++ {
-            w.comms[r] = &MPICommunicator{
-                rank:     r,
-                size:     size,
-                name:     fmt.Sprintf("processor-%d", r),
-                channels: make(map[int]chan *Message), // inbound, keyed by source
-                active:   false, // becomes active when handed out
-            }
-        }
-        // Create shared channels for each directed pair (src -> dst)
-        for src := 0; src < size; src++ {
-            for dst := 0; dst < size; dst++ {
-                if src == dst {
-                    continue
-                }
-                ch := make(chan *Message, 100)
-                // Attach to destination's inbound map under source key
-                w.comms[dst].channels[src] = ch
-            }
-        }
-        worlds[size] = w
-    }
+	// Get or build world for this size
+	w, ok := worlds[size]
+	if !ok {
+		// Build a fresh world with shared channels
+		w = &world{size: size, comms: make(map[int]*MPICommunicator)}
+		// Create comms for each rank
+		for r := 0; r < size; r++ {
+			w.comms[r] = &MPICommunicator{
+				rank:     r,
+				size:     size,
+				name:     fmt.Sprintf("processor-%d", r),
+				channels: make(map[int]chan *Message), // inbound, keyed by source
+				active:   false,                       // becomes active when handed out
+			}
+		}
+		// Create shared channels for each directed pair (src -> dst)
+		for src := 0; src < size; src++ {
+			for dst := 0; dst < size; dst++ {
+				if src == dst {
+					continue
+				}
+				ch := make(chan *Message, 100)
+				// Attach to destination's inbound map under source key
+				w.comms[dst].channels[src] = ch
+			}
+		}
+		worlds[size] = w
+	}
 
-    // Hand out next rank for this world
-    rank := w.nextRank
-    w.nextRank = (w.nextRank + 1) % size
-    comm := w.comms[rank]
-    comm.active = true
-    return comm, nil
+	// Hand out next rank for this world
+	rank := w.nextRank
+	w.nextRank = (w.nextRank + 1) % size
+	comm := w.comms[rank]
+	comm.active = true
+	return comm, nil
 }
 
 // Rank returns the rank of the current process
@@ -156,61 +156,61 @@ func (c *MPICommunicator) GetProcessorName() (string, error) {
 
 // Send performs blocking send operation
 func (c *MPICommunicator) Send(data interface{}, dest int, tag int) error {
-    if !c.active {
-        return errors.New("communicator not active")
-    }
+	if !c.active {
+		return errors.New("communicator not active")
+	}
 
-    if dest < 0 || dest >= c.size || dest == c.rank {
-        return fmt.Errorf("invalid destination rank: %d", dest)
-    }
+	if dest < 0 || dest >= c.size || dest == c.rank {
+		return fmt.Errorf("invalid destination rank: %d", dest)
+	}
 
-    message := &Message{
-        Data:   data,
-        Source: c.rank,
-        Tag:    tag,
-        Size:   estimateMessageSize(data),
-    }
+	message := &Message{
+		Data:   data,
+		Source: c.rank,
+		Tag:    tag,
+		Size:   estimateMessageSize(data),
+	}
 
-    // Route to destination's inbound channel keyed by our rank
-    commMutex.RLock()
-    w := worlds[c.size]
-    commMutex.RUnlock()
-    if w == nil {
-        return errors.New("world not initialized")
-    }
-    dstComm := w.comms[dest]
-    if dstComm == nil {
-        return fmt.Errorf("destination communicator %d not found", dest)
-    }
-    dstComm.mutex.RLock()
-    ch, exists := dstComm.channels[c.rank]
-    dstComm.mutex.RUnlock()
-    if !exists {
-        return fmt.Errorf("no channel to destination %d from source %d", dest, c.rank)
-    }
+	// Route to destination's inbound channel keyed by our rank
+	commMutex.RLock()
+	w := worlds[c.size]
+	commMutex.RUnlock()
+	if w == nil {
+		return errors.New("world not initialized")
+	}
+	dstComm := w.comms[dest]
+	if dstComm == nil {
+		return fmt.Errorf("destination communicator %d not found", dest)
+	}
+	dstComm.mutex.RLock()
+	ch, exists := dstComm.channels[c.rank]
+	dstComm.mutex.RUnlock()
+	if !exists {
+		return fmt.Errorf("no channel to destination %d from source %d", dest, c.rank)
+	}
 
-    select {
-    case ch <- message:
-        return nil
-    default:
-        return errors.New("send buffer full")
-    }
+	select {
+	case ch <- message:
+		return nil
+	default:
+		return errors.New("send buffer full")
+	}
 }
 
 // Recv performs blocking receive operation
 func (c *MPICommunicator) Recv(data interface{}, source int, tag int) error {
-    if !c.active {
-        return errors.New("communicator not active")
-    }
+	if !c.active {
+		return errors.New("communicator not active")
+	}
 
-    // Receive from our inbound channel from the specified source
-    c.mutex.RLock()
-    ch, exists := c.channels[source]
-    c.mutex.RUnlock()
+	// Receive from our inbound channel from the specified source
+	c.mutex.RLock()
+	ch, exists := c.channels[source]
+	c.mutex.RUnlock()
 
-    if !exists {
-        return fmt.Errorf("no channel from source %d", source)
-    }
+	if !exists {
+		return fmt.Errorf("no channel from source %d", source)
+	}
 
 	message := <-ch
 	if message.Tag != tag {
@@ -331,24 +331,24 @@ func (c *MPICommunicator) Broadcast(data interface{}, root int) error {
 		return errors.New("communicator not active")
 	}
 
-    if c.rank == root {
-        // Root sends to all other processes
-        // If caller passed a pointer to slice (e.g., *[]float64), dereference for sending
-        payload := data
-        switch v := data.(type) {
-        case *[]float64:
-            payload = *v
-        case *[][]float64:
-            payload = *v
-        }
-        for i := 0; i < c.size; i++ {
-            if i != root {
-                err := c.Send(payload, i, 0) // Use tag 0 for broadcast
-                if err != nil {
-                    return fmt.Errorf("broadcast send to %d failed: %v", i, err)
-                }
-            }
-        }
+	if c.rank == root {
+		// Root sends to all other processes
+		// If caller passed a pointer to slice (e.g., *[]float64), dereference for sending
+		payload := data
+		switch v := data.(type) {
+		case *[]float64:
+			payload = *v
+		case *[][]float64:
+			payload = *v
+		}
+		for i := 0; i < c.size; i++ {
+			if i != root {
+				err := c.Send(payload, i, 0) // Use tag 0 for broadcast
+				if err != nil {
+					return fmt.Errorf("broadcast send to %d failed: %v", i, err)
+				}
+			}
+		}
 	} else {
 		// Non-root processes receive from root
 		err := c.Recv(data, root, 0)
@@ -366,26 +366,26 @@ func (c *MPICommunicator) BroadcastWithTimeout(data interface{}, root int, timeo
 		return errors.New("communicator not active")
 	}
 
-    if c.rank == root {
-        // Root sends to all other processes with timeout handling
-        errCh := make(chan error, c.size-1)
+	if c.rank == root {
+		// Root sends to all other processes with timeout handling
+		errCh := make(chan error, c.size-1)
 
-        // If caller passed a pointer to slice, dereference for sending
-        payload := data
-        switch v := data.(type) {
-        case *[]float64:
-            payload = *v
-        case *[][]float64:
-            payload = *v
-        }
-        for i := 0; i < c.size; i++ {
-            if i != root {
-                go func(dest int) {
-                    err := c.Send(payload, dest, 0)
-                    errCh <- err
-                }(i)
-            }
-        }
+		// If caller passed a pointer to slice, dereference for sending
+		payload := data
+		switch v := data.(type) {
+		case *[]float64:
+			payload = *v
+		case *[][]float64:
+			payload = *v
+		}
+		for i := 0; i < c.size; i++ {
+			if i != root {
+				go func(dest int) {
+					err := c.Send(payload, dest, 0)
+					errCh <- err
+				}(i)
+			}
+		}
 
 		// Wait for all sends to complete or timeout
 		for i := 0; i < c.size-1; i++ {
@@ -538,34 +538,34 @@ func (c *MPICommunicator) Gather(sendData interface{}, recvData interface{}, roo
 
 // Finalize cleans up the communicator
 func (c *MPICommunicator) Finalize() error {
-    c.mutex.Lock()
-    defer c.mutex.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-    c.active = false
+	c.active = false
 
-    // Close all channels
-    for _, ch := range c.channels {
-        close(ch)
-    }
+	// Close all channels
+	for _, ch := range c.channels {
+		close(ch)
+	}
 
-    // If all communicators in this world are inactive, remove the world
-    commMutex.Lock()
-    w := worlds[c.size]
-    if w != nil {
-        allInactive := true
-        for _, cm := range w.comms {
-            if cm != nil && cm.active {
-                allInactive = false
-                break
-            }
-        }
-        if allInactive {
-            delete(worlds, c.size)
-        }
-    }
-    commMutex.Unlock()
+	// If all communicators in this world are inactive, remove the world
+	commMutex.Lock()
+	w := worlds[c.size]
+	if w != nil {
+		allInactive := true
+		for _, cm := range w.comms {
+			if cm != nil && cm.active {
+				allInactive = false
+				break
+			}
+		}
+		if allInactive {
+			delete(worlds, c.size)
+		}
+	}
+	commMutex.Unlock()
 
-    return nil
+	return nil
 }
 
 // DistributedMatMul performs distributed matrix multiplication

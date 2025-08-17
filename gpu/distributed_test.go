@@ -11,9 +11,9 @@
 package gpu
 
 import (
-    "sync"
-    "testing"
-    "time"
+	"sync"
+	"testing"
+	"time"
 )
 
 // TestDistributedProcessInitialization tests MPI-style process initialization
@@ -84,270 +84,320 @@ func TestDistributedProcessInitialization(t *testing.T) {
 
 // TestMessagePassing tests point-to-point communication
 func TestMessagePassing(t *testing.T) {
-    t.Run("Basic send and receive", func(t *testing.T) {
-        // Initialize both ranks in the same test run
-        comm0, err := InitializeMPI(2)
-        if err != nil { t.Skip("MPI not available") }
-        comm1, err := InitializeMPI(2)
-        if err != nil { t.Skip("MPI not available") }
-        defer comm0.Finalize()
-        defer comm1.Finalize()
+	t.Run("Basic send and receive", func(t *testing.T) {
+		// Initialize both ranks in the same test run
+		comm0, err := InitializeMPI(2)
+		if err != nil {
+			t.Skip("MPI not available")
+		}
+		comm1, err := InitializeMPI(2)
+		if err != nil {
+			t.Skip("MPI not available")
+		}
+		defer comm0.Finalize()
+		defer comm1.Finalize()
 
-        var wg sync.WaitGroup
-        var received []float64
-        wg.Add(2)
+		var wg sync.WaitGroup
+		var received []float64
+		wg.Add(2)
 
-        go func() {
-            defer wg.Done()
-            message := []float64{1.0, 2.0, 3.0, 4.0}
-            if err := comm0.Send(message, 1, 100); err != nil {
-                t.Errorf("Send failed: %v", err)
-            }
-        }()
+		go func() {
+			defer wg.Done()
+			message := []float64{1.0, 2.0, 3.0, 4.0}
+			if err := comm0.Send(message, 1, 100); err != nil {
+				t.Errorf("Send failed: %v", err)
+			}
+		}()
 
-        go func() {
-            defer wg.Done()
-            if err := comm1.Recv(&received, 0, 100); err != nil {
-                t.Errorf("Recv failed: %v", err)
-            }
-        }()
+		go func() {
+			defer wg.Done()
+			if err := comm1.Recv(&received, 0, 100); err != nil {
+				t.Errorf("Recv failed: %v", err)
+			}
+		}()
 
-        wg.Wait()
+		wg.Wait()
 
-        expected := []float64{1.0, 2.0, 3.0, 4.0}
-        if len(received) != len(expected) {
-            t.Errorf("Received wrong length: expected %d, got %d", len(expected), len(received))
-        }
-        for i, v := range expected {
-            if i < len(received) && received[i] != v {
-                t.Errorf("Received[%d] = %f, expected %f", i, received[i], v)
-            }
-        }
-    })
+		expected := []float64{1.0, 2.0, 3.0, 4.0}
+		if len(received) != len(expected) {
+			t.Errorf("Received wrong length: expected %d, got %d", len(expected), len(received))
+		}
+		for i, v := range expected {
+			if i < len(received) && received[i] != v {
+				t.Errorf("Received[%d] = %f, expected %f", i, received[i], v)
+			}
+		}
+	})
 
-    t.Run("Non-blocking communication", func(t *testing.T) {
-        comm0, err := InitializeMPI(2)
-        if err != nil { t.Skip("MPI not available") }
-        comm1, err := InitializeMPI(2)
-        if err != nil { t.Skip("MPI not available") }
-        defer comm0.Finalize()
-        defer comm1.Finalize()
+	t.Run("Non-blocking communication", func(t *testing.T) {
+		comm0, err := InitializeMPI(2)
+		if err != nil {
+			t.Skip("MPI not available")
+		}
+		comm1, err := InitializeMPI(2)
+		if err != nil {
+			t.Skip("MPI not available")
+		}
+		defer comm0.Finalize()
+		defer comm1.Finalize()
 
-        message := []float64{10.0, 20.0, 30.0}
-        sendReq, err := comm0.ISend(message, 1, 200)
-        if err != nil { t.Fatalf("ISend failed: %v", err) }
+		message := []float64{10.0, 20.0, 30.0}
+		sendReq, err := comm0.ISend(message, 1, 200)
+		if err != nil {
+			t.Fatalf("ISend failed: %v", err)
+		}
 
-        var received []float64
-        recvReq, err := comm1.IRecv(&received, 0, 200)
-        if err != nil { t.Fatalf("IRecv failed: %v", err) }
+		var received []float64
+		recvReq, err := comm1.IRecv(&received, 0, 200)
+		if err != nil {
+			t.Fatalf("IRecv failed: %v", err)
+		}
 
-        if err := sendReq.Wait(); err != nil { t.Errorf("Send wait failed: %v", err) }
-        if err := recvReq.Wait(); err != nil { t.Errorf("Recv wait failed: %v", err) }
+		if err := sendReq.Wait(); err != nil {
+			t.Errorf("Send wait failed: %v", err)
+		}
+		if err := recvReq.Wait(); err != nil {
+			t.Errorf("Recv wait failed: %v", err)
+		}
 
-        expected := []float64{10.0, 20.0, 30.0}
-        if len(received) != len(expected) {
-            t.Errorf("Non-blocking receive failed: expected %v, got %v", expected, received)
-        }
-    })
+		expected := []float64{10.0, 20.0, 30.0}
+		if len(received) != len(expected) {
+			t.Errorf("Non-blocking receive failed: expected %v, got %v", expected, received)
+		}
+	})
 
-    t.Run("Message status and probing", func(t *testing.T) {
-        comm0, err := InitializeMPI(2)
-        if err != nil { t.Skip("MPI not available") }
-        comm1, err := InitializeMPI(2)
-        if err != nil { t.Skip("MPI not available") }
-        defer comm0.Finalize()
-        defer comm1.Finalize()
+	t.Run("Message status and probing", func(t *testing.T) {
+		comm0, err := InitializeMPI(2)
+		if err != nil {
+			t.Skip("MPI not available")
+		}
+		comm1, err := InitializeMPI(2)
+		if err != nil {
+			t.Skip("MPI not available")
+		}
+		defer comm0.Finalize()
+		defer comm1.Finalize()
 
-        // Sender after a delay
-        go func() {
-            time.Sleep(100 * time.Millisecond)
-            msg := []float64{100.0, 200.0}
-            if err := comm0.Send(msg, 1, 300); err != nil {
-                t.Errorf("Send failed: %v", err)
-            }
-        }()
+		// Sender after a delay
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			msg := []float64{100.0, 200.0}
+			if err := comm0.Send(msg, 1, 300); err != nil {
+				t.Errorf("Send failed: %v", err)
+			}
+		}()
 
-        // Probe with retries until message appears
-        var status *MessageStatus
-        var perr error
-        deadline := time.Now().Add(2 * time.Second)
-        for time.Now().Before(deadline) {
-            status, perr = comm1.Probe(0, 300)
-            if perr == nil { break }
-            time.Sleep(20 * time.Millisecond)
-        }
-        if perr != nil {
-            t.Fatalf("Probe failed: %v", perr)
-        }
-        if status.Source != 0 { t.Errorf("Wrong source: expected 0, got %d", status.Source) }
-        if status.Tag != 300 { t.Errorf("Wrong tag: expected 300, got %d", status.Tag) }
+		// Probe with retries until message appears
+		var status *MessageStatus
+		var perr error
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			status, perr = comm1.Probe(0, 300)
+			if perr == nil {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		if perr != nil {
+			t.Fatalf("Probe failed: %v", perr)
+		}
+		if status.Source != 0 {
+			t.Errorf("Wrong source: expected 0, got %d", status.Source)
+		}
+		if status.Tag != 300 {
+			t.Errorf("Wrong tag: expected 300, got %d", status.Tag)
+		}
 
-        var received []float64
-        if err := comm1.Recv(&received, 0, 300); err != nil {
-            t.Errorf("Recv after probe failed: %v", err)
-        }
-    })
+		var received []float64
+		if err := comm1.Recv(&received, 0, 300); err != nil {
+			t.Errorf("Recv after probe failed: %v", err)
+		}
+	})
 }
 
 // TestCollectiveCommunication tests collective operations
 func TestCollectiveCommunication(t *testing.T) {
-    t.Run("Broadcast operation", func(t *testing.T) {
-        size := 4
-        comms := make([]*MPICommunicator, size)
-        for i := 0; i < size; i++ {
-            c, err := InitializeMPI(size)
-            if err != nil { t.Skip("MPI not available") }
-            comms[i] = c
-        }
-        defer func() { for _, c := range comms { _ = c.Finalize() } }()
+	t.Run("Broadcast operation", func(t *testing.T) {
+		size := 4
+		comms := make([]*MPICommunicator, size)
+		for i := 0; i < size; i++ {
+			c, err := InitializeMPI(size)
+			if err != nil {
+				t.Skip("MPI not available")
+			}
+			comms[i] = c
+		}
+		defer func() {
+			for _, c := range comms {
+				_ = c.Finalize()
+			}
+		}()
 
-        data := make([][]float64, size)
-        data[0] = []float64{1.5, 2.5, 3.5, 4.5} // root payload
+		data := make([][]float64, size)
+		data[0] = []float64{1.5, 2.5, 3.5, 4.5} // root payload
 
-        var wg sync.WaitGroup
-        wg.Add(size)
-        for r := 0; r < size; r++ {
-            r := r
-            go func() {
-                defer wg.Done()
-                if err := comms[r].Broadcast(&data[r], 0); err != nil {
-                    t.Errorf("rank %d broadcast failed: %v", r, err)
-                }
-            }()
-        }
-        wg.Wait()
+		var wg sync.WaitGroup
+		wg.Add(size)
+		for r := 0; r < size; r++ {
+			r := r
+			go func() {
+				defer wg.Done()
+				if err := comms[r].Broadcast(&data[r], 0); err != nil {
+					t.Errorf("rank %d broadcast failed: %v", r, err)
+				}
+			}()
+		}
+		wg.Wait()
 
-        expected := []float64{1.5, 2.5, 3.5, 4.5}
-        for r := 0; r < size; r++ {
-            if len(data[r]) != len(expected) {
-                t.Errorf("rank %d: wrong data length: expected %d, got %d", r, len(expected), len(data[r]))
-                continue
-            }
-            for i, v := range expected {
-                if data[r][i] != v {
-                    t.Errorf("rank %d: data[%d] = %f, expected %f", r, i, data[r][i], v)
-                }
-            }
-        }
-    })
+		expected := []float64{1.5, 2.5, 3.5, 4.5}
+		for r := 0; r < size; r++ {
+			if len(data[r]) != len(expected) {
+				t.Errorf("rank %d: wrong data length: expected %d, got %d", r, len(expected), len(data[r]))
+				continue
+			}
+			for i, v := range expected {
+				if data[r][i] != v {
+					t.Errorf("rank %d: data[%d] = %f, expected %f", r, i, data[r][i], v)
+				}
+			}
+		}
+	})
 
-    t.Run("Reduce operation", func(t *testing.T) {
-        size := 3
-        comms := make([]*MPICommunicator, size)
-        for i := 0; i < size; i++ {
-            c, err := InitializeMPI(size)
-            if err != nil { t.Skip("MPI not available") }
-            comms[i] = c
-        }
-        defer func() { for _, c := range comms { _ = c.Finalize() } }()
+	t.Run("Reduce operation", func(t *testing.T) {
+		size := 3
+		comms := make([]*MPICommunicator, size)
+		for i := 0; i < size; i++ {
+			c, err := InitializeMPI(size)
+			if err != nil {
+				t.Skip("MPI not available")
+			}
+			comms[i] = c
+		}
+		defer func() {
+			for _, c := range comms {
+				_ = c.Finalize()
+			}
+		}()
 
-        results := make([][]float64, size)
-        var wg sync.WaitGroup
-        wg.Add(size)
-        for r := 0; r < size; r++ {
-            r := r
-            go func() {
-                defer wg.Done()
-                local := []float64{float64(r), float64(r + 10)}
-                if err := comms[r].Reduce(local, &results[r], ReduceSum, 0); err != nil {
-                    t.Errorf("rank %d reduce failed: %v", r, err)
-                }
-            }()
-        }
-        wg.Wait()
+		results := make([][]float64, size)
+		var wg sync.WaitGroup
+		wg.Add(size)
+		for r := 0; r < size; r++ {
+			r := r
+			go func() {
+				defer wg.Done()
+				local := []float64{float64(r), float64(r + 10)}
+				if err := comms[r].Reduce(local, &results[r], ReduceSum, 0); err != nil {
+					t.Errorf("rank %d reduce failed: %v", r, err)
+				}
+			}()
+		}
+		wg.Wait()
 
-        expected := []float64{3.0, 33.0}
-        if len(results[0]) != len(expected) {
-            t.Errorf("root: wrong result length: expected %d, got %d", len(expected), len(results[0]))
-        } else {
-            for i, v := range expected {
-                if results[0][i] != v {
-                    t.Errorf("root: result[%d] = %f, expected %f", i, results[0][i], v)
-                }
-            }
-        }
-    })
+		expected := []float64{3.0, 33.0}
+		if len(results[0]) != len(expected) {
+			t.Errorf("root: wrong result length: expected %d, got %d", len(expected), len(results[0]))
+		} else {
+			for i, v := range expected {
+				if results[0][i] != v {
+					t.Errorf("root: result[%d] = %f, expected %f", i, results[0][i], v)
+				}
+			}
+		}
+	})
 
-    t.Run("All-reduce operation", func(t *testing.T) {
-        size := 3
-        comms := make([]*MPICommunicator, size)
-        for i := 0; i < size; i++ {
-            c, err := InitializeMPI(size)
-            if err != nil { t.Skip("MPI not available") }
-            comms[i] = c
-        }
-        defer func() { for _, c := range comms { _ = c.Finalize() } }()
+	t.Run("All-reduce operation", func(t *testing.T) {
+		size := 3
+		comms := make([]*MPICommunicator, size)
+		for i := 0; i < size; i++ {
+			c, err := InitializeMPI(size)
+			if err != nil {
+				t.Skip("MPI not available")
+			}
+			comms[i] = c
+		}
+		defer func() {
+			for _, c := range comms {
+				_ = c.Finalize()
+			}
+		}()
 
-        results := make([][]float64, size)
-        var wg sync.WaitGroup
-        wg.Add(size)
-        for r := 0; r < size; r++ {
-            r := r
-            go func() {
-                defer wg.Done()
-                local := []float64{float64(r + 1)}
-                if err := comms[r].AllReduce(local, &results[r], ReduceSum); err != nil {
-                    t.Errorf("rank %d allreduce failed: %v", r, err)
-                }
-            }()
-        }
-        wg.Wait()
+		results := make([][]float64, size)
+		var wg sync.WaitGroup
+		wg.Add(size)
+		for r := 0; r < size; r++ {
+			r := r
+			go func() {
+				defer wg.Done()
+				local := []float64{float64(r + 1)}
+				if err := comms[r].AllReduce(local, &results[r], ReduceSum); err != nil {
+					t.Errorf("rank %d allreduce failed: %v", r, err)
+				}
+			}()
+		}
+		wg.Wait()
 
-        expected := []float64{6.0}
-        for r := 0; r < size; r++ {
-            if len(results[r]) != len(expected) {
-                t.Errorf("rank %d: wrong result length: expected %d, got %d", r, len(expected), len(results[r]))
-                continue
-            }
-            if results[r][0] != expected[0] {
-                t.Errorf("rank %d: result[0] = %f, expected %f", r, results[r][0], expected[0])
-            }
-        }
-    })
+		expected := []float64{6.0}
+		for r := 0; r < size; r++ {
+			if len(results[r]) != len(expected) {
+				t.Errorf("rank %d: wrong result length: expected %d, got %d", r, len(expected), len(results[r]))
+				continue
+			}
+			if results[r][0] != expected[0] {
+				t.Errorf("rank %d: result[0] = %f, expected %f", r, results[r][0], expected[0])
+			}
+		}
+	})
 
-    t.Run("Gather operation", func(t *testing.T) {
-        size := 3
-        comms := make([]*MPICommunicator, size)
-        for i := 0; i < size; i++ {
-            c, err := InitializeMPI(size)
-            if err != nil { t.Skip("MPI not available") }
-            comms[i] = c
-        }
-        defer func() { for _, c := range comms { _ = c.Finalize() } }()
+	t.Run("Gather operation", func(t *testing.T) {
+		size := 3
+		comms := make([]*MPICommunicator, size)
+		for i := 0; i < size; i++ {
+			c, err := InitializeMPI(size)
+			if err != nil {
+				t.Skip("MPI not available")
+			}
+			comms[i] = c
+		}
+		defer func() {
+			for _, c := range comms {
+				_ = c.Finalize()
+			}
+		}()
 
-        gathered := make([][][]float64, size)
-        var wg sync.WaitGroup
-        wg.Add(size)
-        for r := 0; r < size; r++ {
-            r := r
-            go func() {
-                defer wg.Done()
-                local := []float64{float64(r * r)}
-                if err := comms[r].Gather(local, &gathered[r], 0); err != nil {
-                    t.Errorf("rank %d gather failed: %v", r, err)
-                }
-            }()
-        }
-        wg.Wait()
+		gathered := make([][][]float64, size)
+		var wg sync.WaitGroup
+		wg.Add(size)
+		for r := 0; r < size; r++ {
+			r := r
+			go func() {
+				defer wg.Done()
+				local := []float64{float64(r * r)}
+				if err := comms[r].Gather(local, &gathered[r], 0); err != nil {
+					t.Errorf("rank %d gather failed: %v", r, err)
+				}
+			}()
+		}
+		wg.Wait()
 
-        if len(gathered[0]) != 3 {
-            t.Errorf("root: wrong gather length: expected 3, got %d", len(gathered[0]))
-        }
-        expected := [][]float64{{0.0}, {1.0}, {4.0}}
-        for i, expectedSlice := range expected {
-            if i < len(gathered[0]) {
-                if len(gathered[0][i]) != len(expectedSlice) {
-                    t.Errorf("gathered[%d] length wrong: expected %d, got %d", i, len(expectedSlice), len(gathered[0][i]))
-                    continue
-                }
-                for j, expectedVal := range expectedSlice {
-                    if gathered[0][i][j] != expectedVal {
-                        t.Errorf("gathered[%d][%d] = %f, expected %f", i, j, gathered[0][i][j], expectedVal)
-                    }
-                }
-            }
-        }
-    })
+		if len(gathered[0]) != 3 {
+			t.Errorf("root: wrong gather length: expected 3, got %d", len(gathered[0]))
+		}
+		expected := [][]float64{{0.0}, {1.0}, {4.0}}
+		for i, expectedSlice := range expected {
+			if i < len(gathered[0]) {
+				if len(gathered[0][i]) != len(expectedSlice) {
+					t.Errorf("gathered[%d] length wrong: expected %d, got %d", i, len(expectedSlice), len(gathered[0][i]))
+					continue
+				}
+				for j, expectedVal := range expectedSlice {
+					if gathered[0][i][j] != expectedVal {
+						t.Errorf("gathered[%d][%d] = %f, expected %f", i, j, gathered[0][i][j], expectedVal)
+					}
+				}
+			}
+		}
+	})
 }
 
 // TestParallelOperations tests distributed parallel computations

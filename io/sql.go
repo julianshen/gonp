@@ -392,26 +392,26 @@ func convertSQLValue(val interface{}, colType *sql.ColumnType) (interface{}, err
 // It tries a simple SELECT with a validated identifier, which works on SQLite/Postgres
 // and many MySQL setups (ANSI_QUOTES). Otherwise, errors are passed through.
 func checkTableExists(db *sql.DB, tableName string) (bool, error) {
-    if err := validateIdentifier(tableName); err != nil {
-        return false, err
-    }
-    selSQL := fmt.Sprintf("SELECT 1 FROM %s LIMIT 1", tableName)
-    row := db.QueryRow(selSQL)
-    var one int
-    if err := row.Scan(&one); err != nil {
-        // Empty table still means the table exists
-        if err == sql.ErrNoRows {
-            return true, nil
-        }
-        // Not found is treated as non-existent; differentiate common messages conservatively
-        if strings.Contains(strings.ToLower(err.Error()), "no such table") ||
-            strings.Contains(strings.ToLower(err.Error()), "doesn't exist") ||
-            strings.Contains(strings.ToLower(err.Error()), "undefined table") {
-            return false, nil
-        }
-        return false, err
-    }
-    return true, nil
+	if err := validateIdentifier(tableName); err != nil {
+		return false, err
+	}
+	selSQL := fmt.Sprintf("SELECT 1 FROM %s LIMIT 1", tableName)
+	row := db.QueryRow(selSQL)
+	var one int
+	if err := row.Scan(&one); err != nil {
+		// Empty table still means the table exists
+		if err == sql.ErrNoRows {
+			return true, nil
+		}
+		// Not found is treated as non-existent; differentiate common messages conservatively
+		if strings.Contains(strings.ToLower(err.Error()), "no such table") ||
+			strings.Contains(strings.ToLower(err.Error()), "doesn't exist") ||
+			strings.Contains(strings.ToLower(err.Error()), "undefined table") {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // createTableFromDataFrame creates a table schema based on DataFrame structure

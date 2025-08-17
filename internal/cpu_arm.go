@@ -3,10 +3,10 @@
 package internal
 
 import (
-    "bufio"
-    "os"
-    "runtime"
-    "strings"
+	"bufio"
+	"os"
+	"runtime"
+	"strings"
 )
 
 // detectARMFeatures detects ARM SIMD capabilities
@@ -60,28 +60,28 @@ func detectARM32Features(features *CPUFeatures) {
 // checkARM32NEON checks if ARM32 NEON is available
 // Attempts to read /proc/cpuinfo on Linux; otherwise returns false.
 func checkARM32NEON() bool {
-    if runtime.GOOS == "linux" {
-        f, err := os.Open("/proc/cpuinfo")
-        if err == nil {
-            defer f.Close()
-            s := bufio.NewScanner(f)
-            for s.Scan() {
-                line := strings.ToLower(s.Text())
-                if strings.HasPrefix(line, "features") || strings.HasPrefix(line, "flags") {
-                    parts := strings.Split(line, ":")
-                    if len(parts) < 2 {
-                        continue
-                    }
-                    for _, tok := range strings.Fields(parts[1]) {
-                        if strings.TrimSpace(tok) == "neon" {
-                            return true
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return false
+	if runtime.GOOS == "linux" {
+		f, err := os.Open("/proc/cpuinfo")
+		if err == nil {
+			defer f.Close()
+			s := bufio.NewScanner(f)
+			for s.Scan() {
+				line := strings.ToLower(s.Text())
+				if strings.HasPrefix(line, "features") || strings.HasPrefix(line, "flags") {
+					parts := strings.Split(line, ":")
+					if len(parts) < 2 {
+						continue
+					}
+					for _, tok := range strings.Fields(parts[1]) {
+						if strings.TrimSpace(tok) == "neon" {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // isARMCPUModelSupported checks if a specific ARM CPU model supports NEON

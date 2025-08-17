@@ -269,11 +269,11 @@ func GetDefaultDevice() (Device, error) {
 
 // IsCudaAvailable returns true if CUDA backend is available
 func IsCudaAvailable() bool {
-    // Ask the CUDA backend (build-tagged) whether devices can be detected.
-    if devices, err := DetectCUDADevices(); err == nil && len(devices) > 0 {
-        return true
-    }
-    return false
+	// Ask the CUDA backend (build-tagged) whether devices can be detected.
+	if devices, err := DetectCUDADevices(); err == nil && len(devices) > 0 {
+		return true
+	}
+	return false
 }
 
 // IsOpenCLAvailable returns true if OpenCL backend is available
