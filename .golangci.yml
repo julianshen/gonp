@@ -3,6 +3,10 @@ run:
   build-tags:
     - vet
   tests: false
+  skip-dirs:
+    - gpu
+    - bin
+    - .gocache
 
 issues:
   exclude-dirs:
