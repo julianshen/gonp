@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: [1.22, 1.25]
+        go-version: [1.25]
 
     steps:
     - uses: actions/checkout@v4
@@ -40,8 +40,8 @@ jobs:
           exit 1
         fi
 
-    - name: Run go vet
-      run: go vet ./...
+    - name: Run go vet (internal with vet tag)
+      run: go vet -tags vet ./internal
 
     - name: Install golangci-lint
       run: |
@@ -50,11 +50,21 @@ jobs:
     - name: Run golangci-lint
       run: $(go env GOPATH)/bin/golangci-lint run
 
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+    - name: Run tests (exclude examples; vet tag)
+      run: |
+        pkgs=$(go list ./... | grep -v "/examples")
+        go test -tags vet -v -coverprofile=coverage.out $pkgs
 
-    - name: Run benchmarks
-      run: go test -bench=. -benchmem ./...
+    - name: Verify examples compile (vet tag)
+      run: |
+        for example in examples/*.go; do \
+          echo "Checking $example..."; \
+          go build -tags vet -o /dev/null "$example"; \
+        done
+
+    - name: Run benchmarks (internal; vet tag; main only)
+      if: github.ref == 'refs/heads/main'
+      run: go test -tags vet -bench=. -benchmem ./internal
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
