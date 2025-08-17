@@ -37,7 +37,6 @@ import (
     "github.com/julianshen/gonp/math"
     "github.com/julianshen/gonp/stats"
     "github.com/julianshen/gonp/visualization"
-    "github.com/julianshen/gonp/internal"
 )
 ```
 
@@ -56,10 +55,10 @@ import (
 
 | NumPy | GoNP |
 |-------|------|
-| `np.zeros((3, 4))` | `array.Zeros(internal.Shape{3, 4}, internal.Float64)` |
-| `np.ones((2, 3))` | `array.Ones(internal.Shape{2, 3}, internal.Float64)` |
-| `np.empty((3, 3))` | `array.Empty(internal.Shape{3, 3}, internal.Float64)` |
-| `np.eye(4)` | `array.Eye(4, internal.Float64)` |
+| `np.zeros((3, 4))` | construct via `array.FromSlice(make([]float64, 12))` then reshape |
+| `np.ones((2, 3))` | construct via `array.FromSlice([]float64{1,1,1,1,1,1})` then reshape |
+| `np.empty((3, 3))` | construct via `array.FromSlice(make([]float64, 9))` |
+| `np.eye(4)` | build from slices; helper may be added in future |
 | `np.linspace(0, 10, 50)` | `array.Linspace(0, 10, 50)` |
 | `np.arange(0, 10, 0.5)` | `array.Arange(0, 10, 0.5)` |
 
@@ -67,12 +66,12 @@ import (
 
 | NumPy | GoNP |
 |-------|------|
-| `dtype=np.float64` | `internal.Float64` |
-| `dtype=np.float32` | `internal.Float32` |
-| `dtype=np.int64` | `internal.Int64` |
-| `dtype=np.int32` | `internal.Int32` |
-| `dtype=np.bool` | `internal.Bool` |
-| `dtype=np.complex128` | `internal.Complex128` |
+| `dtype=np.float64` | use `[]float64` with `array.FromSlice` |
+| `dtype=np.float32` | use `[]float32` with `array.FromSlice` |
+| `dtype=np.int64` | use `[]int64` with `array.FromSlice` |
+| `dtype=np.int32` | use `[]int32` with `array.FromSlice` |
+| `dtype=np.bool` | use `[]bool` with `array.FromSlice` |
+| `dtype=np.complex128` | use `[]complex128` with `array.FromSlice` |
 
 **Example:**
 ```python
@@ -83,8 +82,6 @@ arr = np.array([1, 2, 3], dtype=np.float32)
 ```go
 // GoNP
 arr, _ := array.FromSlice([]float32{1, 2, 3})
-// OR with explicit type conversion
-arr = array.Zeros(internal.Shape{3}, internal.Float32)
 ```
 
 ---
@@ -128,9 +125,9 @@ fmt.Printf("Shape: %v, Size: %d, Dims: %d\n",
 
 | NumPy | GoNP |
 |-------|------|
-| `arr[1:4]` | `arr.Slice(internal.NewRange(1, 4, 1))` |
-| `arr[::2]` | `arr.Slice(internal.NewRange(0, -1, 2))` |
-| `arr[:, 1:3]` | `arr.Slice(internal.AllRange(), internal.NewRange(1, 3, 1))` |
+| `arr[1:4]` | slice via helper methods; see array indexing API |
+| `arr[::2]` | slice via helper methods; see array indexing API |
+| `arr[:, 1:3]` | slice via helper methods; see array indexing API |
 
 ### Boolean Indexing
 
@@ -239,7 +236,7 @@ result, _ := sin_squared.Add(cos_squared)
 | NumPy | GoNP |
 |-------|------|
 | `np.corrcoef(x, y)` | `stats.Correlation(x, y)` |
-| `scipy.stats.spearmanr(x, y)` | `stats.SpearmanCorr(x, y)` |
+| `scipy.stats.spearmanr(x, y)` | `stats.SpearmanCorrelation(x, y)` |
 | `scipy.stats.kendalltau(x, y)` | `stats.KendallTau(x, y)` |
 
 **Example:**
@@ -255,12 +252,11 @@ stats_summary = {
 
 ```go
 // GoNP
-stats_summary := map[string]float64{
-    "mean": stats.Mean(data),
-    "std":  stats.StdDev(data), 
-    "min":  stats.Min(data),
-    "max":  stats.Max(data),
-}
+mean, _ := stats.Mean(data)
+std, _ := stats.Std(data)
+min, _ := stats.Min(data)
+max, _ := stats.Max(data)
+stats_summary := map[string]float64{"mean": mean, "std": std, "min": min, "max": max}
 ```
 
 ---
@@ -308,8 +304,9 @@ x, err := math.Solve(A, b)
 if err != nil {
     log.Fatal(err)
 }
-residual_vec, _ := math.MatMul(A, x).Sub(b)
-residual := math.Norm(residual_vec)
+Ax, _ := math.MatMul(A, x)
+residualVec, _ := Ax.Sub(b)
+residual, _ := math.Norm(residualVec, nil)
 ```
 
 ---
@@ -320,7 +317,7 @@ residual := math.Norm(residual_vec)
 
 | NumPy | GoNP |
 |-------|------|
-| `arr.reshape(2, 4)` | `arr.Reshape(internal.Shape{2, 4})` |
+| `arr.reshape(2, 4)` | `arr.Reshape(/* shape helper */)` |
 | `arr.T` | `arr.Transpose()` |
 | `arr.flatten()` | `arr.Flatten()` |
 | `np.squeeze(arr)` | `arr.Squeeze()` |
@@ -435,18 +432,18 @@ filtered := s.Where(func(x interface{}) bool {
 
 | Pandas | GoNP |
 |--------|------|
-| `df.mean()` | `df.Mean()` |
-| `df.describe()` | `df.Describe()` |
+| `df.mean()` | use groupby aggregations or column-level stats |
+| `df.describe()` | derive via column stats (per-series) |
 | `df.groupby('column').sum()` | `df.GroupBy("column").Sum()` |
-| `df.merge(other, on='key')` | `df.Merge(other, "key", dataframe.InnerJoin)` |
+| `df.merge(other, on='key')` | `dataframe.InnerJoin(df, other, "key", "key")` |
 
 ### Manipulation
 
 | Pandas | GoNP |
 |--------|------|
-| `df.drop(columns=['A'])` | `df.Drop([]string{"A"})` |
-| `df.rename(columns={'A': 'X'})` | `df.Rename(map[string]string{"A": "X"})` |
-| `df.pivot_table(values='V', index='I', columns='C')` | `df.PivotTable("V", "I", "C", "mean")` |
+| `df.drop(columns=['A'])` | not yet available |
+| `df.rename(columns={'A': 'X'})` | not yet available |
+| `df.pivot_table(values='V', index='I', columns='C')` | `df.PivotTable("I", "C", "V", "mean")` |
 
 **Example:**
 ```python  
@@ -480,14 +477,14 @@ result := df.GroupBy("group").Mean()
 | Pandas | GoNP |
 |--------|------|
 | `pd.read_csv('file.csv')` | `io.ReadCSV("file.csv")` |
-| `df.to_csv('file.csv')` | `io.WriteCSV(df, "file.csv", nil)` |
+| `df.to_csv('file.csv')` | `io.WriteCSV(df, "file.csv")` |
 
 ### Other Formats
 
 | Pandas | GoNP |
 |--------|------|
 | `pd.read_parquet('file.parquet')` | `io.ReadParquet("file.parquet")` |
-| `df.to_parquet('file.parquet')` | `io.WriteParquet(df, "file.parquet", nil)` |
+| `df.to_parquet('file.parquet')` | `io.WriteParquet("file.parquet", df)` |
 | `pd.read_sql(query, conn)` | `io.ReadSQL(query, conn)` |
 | `df.to_sql('table', conn)` | `io.WriteSQL(df, "table", conn, nil)` |
 
@@ -541,10 +538,8 @@ import memory_profiler
 
 ```go
 // GoNP
-import _ "github.com/julianshen/gonp/internal"
-// Memory profiling is built-in with debug mode
-internal.EnableDebugMode()
-internal.EnableMemoryProfiling()
+// Use Go's pprof or your APM of choice for memory profiling
+// Example: go test -bench . -benchmem ./internal
 ```
 
 ### Benchmarking

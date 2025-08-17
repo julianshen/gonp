@@ -19,7 +19,7 @@ GoNP (Go NumPy + Pandas) is a high-performance numerical computing library for G
 
 ```bash
 go mod init your-project
-go get github.com/julianshen/gonp
+go get github.com/julianshen/gonp@latest
 ```
 
 ## Core Concepts
@@ -85,20 +85,10 @@ if err != nil {
 }
 ```
 
-### Array Creation Functions
+### Array Creation Notes
 
-```go
-import "github.com/julianshen/gonp/internal"
-
-// Create arrays filled with specific values
-zeros := array.Zeros(internal.Shape{3, 3}, internal.Float64)
-ones := array.Ones(internal.Shape{2, 4}, internal.Float64)
-filled := array.Full(internal.Shape{2, 2}, 7.5, internal.Float64)
-
-fmt.Printf("Zeros:\n%v\n", zeros)
-fmt.Printf("Ones:\n%v\n", ones)
-fmt.Printf("Filled:\n%v\n", filled)
-```
+Public helpers use slices; shape/type helpers live in internal and aren’t imported directly.
+Use `array.FromSlice` to construct data and array methods to transform.
 
 ## Working with Series
 
@@ -235,7 +225,8 @@ func main() {
     
     // Exponential functions
     expResult, _ := math.Exp(data)
-    logResult, _ := math.Log(data[1:]) // Avoid log(0)
+    // Log handles 0 as -Inf; avoid or filter as needed
+    logResult, _ := math.Log(data)
     
     fmt.Printf("Exp: %v\n", expResult)
     fmt.Printf("Log: %v\n", logResult)
@@ -343,7 +334,7 @@ import "github.com/julianshen/gonp/io"
 
 func main() {
     // Read CSV file
-    df, err := io.ReadCSV("data.csv", true) // true = has header
+    df, err := io.ReadCSV("data.csv")
     if err != nil {
         log.Fatal(err)
     }
@@ -351,7 +342,7 @@ func main() {
     fmt.Printf("Loaded DataFrame: %d rows, %d columns\n", df.Len(), len(df.Columns()))
     
     // Write CSV file
-    err = io.WriteCSV(df, "output.csv", true) // true = write header
+    err = io.WriteCSV(df, "output.csv")
     if err != nil {
         log.Fatal(err)
     }
@@ -361,17 +352,13 @@ func main() {
 ### JSON Operations
 
 ```go
-// Write DataFrame to JSON
-err := io.WriteJSON(df, "output.json")
-if err != nil {
-    log.Fatal(err)
-}
+// Serialize arrays/series
+_ = io.WriteArrayJSON(arr, "array.json")
+_ = io.WriteSeriesJSON(s, "series.json")
 
-// Read DataFrame from JSON
-dfFromJSON, err := io.ReadJSON("output.json")
-if err != nil {
-    log.Fatal(err)
-}
+arr2, _ := io.ReadArrayJSON("array.json")
+s2, _ := io.ReadSeriesJSON("series.json")
+_ = arr2; _ = s2
 ```
 
 ## Performance Tips
@@ -422,7 +409,7 @@ for i := 0; i < arr.Size(); i++ {
 ```go
 func analyzeData(filename string) error {
     // Load data
-    df, err := io.ReadCSV(filename, true)
+    df, err := io.ReadCSV(filename)
     if err != nil {
         return err
     }
@@ -443,7 +430,7 @@ func analyzeData(filename string) error {
     filtered, _ := df.Slice(0, df.Len()/2)
     
     // Save results
-    return io.WriteCSV(filtered, "filtered_data.csv", true)
+    return io.WriteCSV(filtered, "filtered_data.csv")
 }
 ```
 
