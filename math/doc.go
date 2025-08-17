@@ -195,9 +195,9 @@
 //
 // Operations between arrays of different but compatible shapes:
 //
-//	matrix := array.FromSlice([][]float64{{1, 2, 3}, {4, 5, 6}})  // [2, 3]
-//	vector := array.FromSlice([]float64{10, 20, 30})              // [3]
-//	result := math.Add(matrix, vector)  // Broadcasting: vector applied to each row
+//	matrix, _ := array.FromSlice([][]float64{{1, 2, 3}, {4, 5, 6}})  // [2, 3]
+//	vector, _ := array.FromSlice([]float64{10, 20, 30})              // [3]
+//	result, _ := matrix.Add(vector)     // Broadcasting: vector applied to each row
 //
 // # Error Handling
 //

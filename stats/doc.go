@@ -25,10 +25,10 @@
 //	data, _ := array.FromSlice([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 //
 //	// Descriptive statistics
-//	mean := stats.Mean(data)           // Arithmetic mean: 5.5
-//	median := stats.Median(data)       // Middle value: 5.5
-//	stdDev := stats.StdDev(data)       // Standard deviation
-//	variance := stats.Variance(data)   // Population variance
+//	mean, _ := stats.Mean(data)        // Arithmetic mean: 5.5
+//	median, _ := stats.Median(data)    // Middle value: 5.5
+//	stddev, _ := stats.Std(data)       // Standard deviation
+//	variance, _ := stats.Var(data)     // Population variance
 //
 //	// Distribution properties
 //	min := stats.Min(data)             // Minimum value: 1
@@ -51,8 +51,8 @@
 // ## Dispersion Measures
 //
 //	// Measures of spread
-//	variance := stats.Variance(data)   // Population variance
-//	stddev := stats.StdDev(data)       // Standard deviation
+//	variance, _ := stats.Var(data)     // Population variance
+//	stddev, _ := stats.Std(data)       // Standard deviation
 //	mad := stats.MAD(data)             // Mean absolute deviation
 //	range_val := stats.Range(data)     // Max - Min
 //	iqr := stats.IQR(data)             // Interquartile range
@@ -246,10 +246,6 @@
 //	acf := stats.AutoCorrelation(timeseries, max_lag)
 //	pacf := stats.PartialAutoCorrelation(timeseries, max_lag)
 //
-//	// Trend detection
-//	trend := stats.MannKendallTrend(timeseries)  // Non-parametric trend test
-//	seasonal := stats.SeasonalDecomposition(timeseries, period)
-//
 // # Performance and Accuracy
 //
 // ## Numerical Stability
@@ -274,7 +270,7 @@
 //	data_with_missing := []float64{1, 2, NaN, 4, 5, NaN, 7}
 //	arr, _ := array.FromSlice(data_with_missing)
 //
-//	mean := stats.MeanIgnoreNaN(arr)         // Ignores NaN values
+//	mean, _ := stats.MeanSkipNaN(arr)        // Ignores NaN values
 //	complete_cases := stats.RemoveMissing(arr) // Remove NaN entries
 //
 // # Integration Examples
@@ -283,8 +279,9 @@
 //
 //	// Complete statistical analysis pipeline
 //	func analyzeData(rawData *array.Array) {
-//		// 1. Descriptive statistics
-//		desc := stats.Describe(rawData)
+//		// 1. Descriptive statistics (Series-based)
+//		s, _ := series.FromArray(rawData, nil, "data")
+//		desc, _ := stats.Describe(s)
 //		fmt.Printf("Mean: %.2f, Std: %.2f\n", desc.Mean, desc.StdDev)
 //
 //		// 2. Check normality
@@ -309,27 +306,21 @@
 //
 //	func abTest(control, treatment *array.Array) {
 //		// Descriptive statistics for both groups
-//		controlStats := stats.Describe(control)
-//		treatmentStats := stats.Describe(treatment)
+//		cs, _ := series.FromArray(control, nil, "control")
+//		ts, _ := series.FromArray(treatment, nil, "treatment")
+//		controlStats, _ := stats.Describe(cs)
+//		treatmentStats, _ := stats.Describe(ts)
 //
 //		fmt.Printf("Control: μ=%.3f, σ=%.3f, n=%d\n",
 //			controlStats.Mean, controlStats.StdDev, controlStats.Count)
 //		fmt.Printf("Treatment: μ=%.3f, σ=%.3f, n=%d\n",
 //			treatmentStats.Mean, treatmentStats.StdDev, treatmentStats.Count)
 //
-//		// Test for equal variances
-//		levene := stats.LeveneTest(control, treatment)
-//		equal_var := levene.PValue > 0.05
-//
 //		// Two-sample t-test
-//		ttest := stats.TwoSampleTTest(control, treatment, equal_var)
-//
-//		// Effect size
-//		cohens_d := stats.CohensD(control, treatment)
+//		ttest, _ := stats.TwoSampleTTest(control, treatment)
 //
 //		// Results
 //		fmt.Printf("t-test: t=%.3f, p=%.4f\n", ttest.TStatistic, ttest.PValue)
-//		fmt.Printf("Effect size (Cohen's d): %.3f\n", cohens_d)
 //
 //		if ttest.PValue < 0.05 {
 //			fmt.Printf("Significant difference detected!\n")

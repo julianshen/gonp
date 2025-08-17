@@ -12,15 +12,13 @@
 // Creating arrays:
 //
 //	import "github.com/julianshen/gonp/array"
-//	import "github.com/julianshen/gonp/internal"
 //
 //	// From Go slices (most common)
 //	arr, _ := array.FromSlice([]float64{1, 2, 3, 4, 5})
 //	matrix, _ := array.FromSlice([][]float64{{1, 2}, {3, 4}})
 //
 //	// Create arrays filled with specific values
-//	zeros := array.Zeros(internal.Shape{3, 4}, internal.Float64)
-//	ones := array.Ones(internal.Shape{2, 3}, internal.Int32)
+//	// (Use FromSlice helpers and arithmetic; shape constructors are internal)
 //
 //	// Using ranges
 //	sequence := array.Linspace(0, 10, 50)  // 50 points from 0 to 10
@@ -120,7 +118,6 @@
 //
 // ## Shape Operations
 //
-//	reshaped := arr.Reshape(internal.Shape{2, 4})  // Change dimensions
 //	flattened := arr.Flatten()                     // Make 1D
 //	transposed := matrix.Transpose()               // Swap dimensions
 //
@@ -131,8 +128,8 @@
 //
 // ## Slicing and Indexing
 //
-//	// Basic slicing
-//	slice := arr.Slice(internal.NewRange(1, 4, 1))  // Elements 1:4
+//	// Basic slicing (index helpers)
+//	// See package indexing methods for helpers to create ranges
 //
 //	// Boolean indexing
 //	mask := arr.Greater(0)
@@ -210,11 +207,10 @@
 //
 //	# NumPy                          // GoNP
 //	import numpy as np               import "github.com/julianshen/gonp/array"
-//	                                 import "github.com/julianshen/gonp/internal"
 //
 //	arr = np.array([1, 2, 3])        arr, _ := array.FromSlice([]float64{1, 2, 3})
-//	zeros = np.zeros((3, 4))         zeros := array.Zeros(internal.Shape{3, 4}, internal.Float64)
-//	ones = np.ones((2, 3))           ones := array.Ones(internal.Shape{2, 3}, internal.Float64)
+//	zeros = np.zeros((3, 4))         // Use FromSlice + arithmetic to construct
+//	ones = np.ones((2, 3))           // Use FromSlice + arithmetic to construct
 //
 //	result = arr1 + arr2             result := arr1.Add(arr2)
 //	scaled = arr * 2.5               scaled := arr.MulScalar(2.5)
@@ -222,6 +218,6 @@
 //	total = np.sum(arr)              total := arr.Sum()
 //	mean = np.mean(arr, axis=0)      mean := arr.Mean(0)
 //
-//	reshaped = arr.reshape(2, 4)     reshaped := arr.Reshape(internal.Shape{2, 4})
+//	reshaped = arr.reshape(2, 4)     // Use flatten/transpose and constructors
 //	transposed = arr.T               transposed := arr.Transpose()
 package array
