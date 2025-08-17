@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   test:
@@ -14,73 +14,73 @@ jobs:
         go-version: [1.25]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
 
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-    - name: Install dependencies
-      run: go mod download
+      - name: Install dependencies
+        run: go mod download
 
-    - name: Run gofmt
-      run: |
-        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-          echo "Code is not formatted:"
-          gofmt -s -l .
-          exit 1
-        fi
+      - name: Run gofmt
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted:"
+            gofmt -s -l .
+            exit 1
+          fi
 
-    - name: Run go vet (internal with vet tag)
-      run: go vet -tags vet ./internal
+      - name: Run go vet (internal with vet tag)
+        run: go vet -tags vet ./internal
 
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: v1.60.3
-        args: --timeout=3m
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.4.0
+          args: --timeout=3m
 
-    - name: Run tests (exclude examples; vet tag)
-      run: |
-        pkgs=$(go list ./... | grep -v "/examples")
-        go test -tags vet -v -coverprofile=coverage.out $pkgs
+      - name: Run tests (exclude examples; vet tag)
+        run: |
+          pkgs=$(go list ./... | grep -v "/examples")
+          go test -tags vet -v -coverprofile=coverage.out $pkgs
 
-    - name: Verify examples compile (vet tag)
-      run: |
-        for example in examples/*.go; do \
-          echo "Checking $example..."; \
-          go build -tags vet -o /dev/null "$example"; \
-        done
+      - name: Verify examples compile (vet tag)
+        run: |
+          for example in examples/*.go; do \
+            echo "Checking $example..."; \
+            go build -tags vet -o /dev/null "$example"; \
+          done
 
-    - name: Install gosec (optional)
-      continue-on-error: true
-      run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
+      - name: Install gosec (optional)
+        continue-on-error: true
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
 
-    - name: Security scan (optional)
-      continue-on-error: true
-      run: |
-        if command -v gosec >/dev/null 2>&1; then \
-          echo "Running gosec (optional)"; \
-          gosec ./...; \
-        else \
-          echo "gosec not installed, skipping"; \
-        fi
+      - name: Security scan (optional)
+        continue-on-error: true
+        run: |
+          if command -v gosec >/dev/null 2>&1; then \
+            echo "Running gosec (optional)"; \
+            gosec ./...; \
+          else \
+            echo "gosec not installed, skipping"; \
+          fi
 
-    - name: Run benchmarks (internal; vet tag; main only)
-      if: github.ref == 'refs/heads/main'
-      run: go test -tags vet -bench=. -benchmem ./internal
+      - name: Run benchmarks (internal; vet tag; main only)
+        if: github.ref == 'refs/heads/main'
+        run: go test -tags vet -bench=. -benchmem ./internal
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.out
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.out
